@@ -7,16 +7,14 @@ PARENT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(PARENT_DIR)
 
 import rospy
-import pandas as pd
-import numpy as np
 import cv2
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge, CvBridgeError
-from numpy.linalg import inv
 from ultralytics import YOLO
 
 from utils.util import size_interpolation, depth_filter, yolo_pose
 from utils.util import pose_seg_match, result_project
+from green_onion_perception.msg import Keypoints, Pose
 from src.test_visual import drawing
 
 
@@ -30,6 +28,8 @@ class Camera:
 
         rospy.Subscriber("zed2i/zed_node/depth/depth_registered",
                          Image, self.get_depth_image)
+
+        self.kpts_pub = rospy.Publisher('kpts_pose', Keypoints, queue_size=10)
 
         self.camera_info = rospy.wait_for_message(
             "zed2i/zed_node/rgb/camera_info", CameraInfo)
@@ -63,6 +63,18 @@ class Camera:
         except CvBridgeError as e:
             print(e)
 
+    def pub_kpts_pose(self, pro_result, orientation):
+        num_obj = len(orientation)
+        kpts_data = Keypoints()
+        kpts_data.num = num_obj
+        kpts_data.stamp = rospy.Time.now()
+        for i in range(num_obj):
+            kpt_pose = Pose()
+            kpt_pose.x, kpt_pose.y, kpt_pose.z = pro_result[i]
+            kpt_pose.yaw = orientation[i]
+            kpts_data.grap_pose.append(kpt_pose)
+        self.kpts_pub.pub(kpts_data)
+
     def run(self):
         rospy.sleep(2)
 
@@ -90,8 +102,16 @@ class Camera:
             # match instance seg depth and keypoints
             depth = pose_seg_match(points, depth_mask)
 
+            # project the points to the world coordinate frame
             pro_result, orientation = result_project(points, depth)
 
+            # publish the message to the topic
+            self.pub_kpts_pose(pro_result, orientation)
+
+            # publish the keypoint pose
+            self.pub_kpts_pose(pro_result, orientation)
+
+            # visualization
             if self.visual:
                 k = drawing(self.cv_image, points, pro_result, orientation)
                 if k == ord('q'):
