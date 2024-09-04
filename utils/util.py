@@ -217,4 +217,5 @@ def result_project(point, depth):
     dy = p2[:, 1] - p1[:, 1]
     dx = p2[:, 0] - p1[:, 0]
     orientation = np.arctan2(dy, dx) * 180 / np.pi
+    grasp_point[:, -1] = depth
     return grasp_point, orientation

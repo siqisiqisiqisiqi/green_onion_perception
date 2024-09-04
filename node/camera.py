@@ -15,7 +15,9 @@ from cv_bridge import CvBridge, CvBridgeError
 from numpy.linalg import inv
 from ultralytics import YOLO
 
-from utils.util import size_interpolation, depth_filter, yolo_pose, pose_seg_match
+from utils.util import size_interpolation, depth_filter, yolo_pose
+from utils.util import pose_seg_match, result_project
+from src.test_visual import drawing
 
 
 class Camera:
@@ -40,6 +42,8 @@ class Camera:
 
         rospy.wait_for_message("zed2i/zed_node/rgb/image_rect_color", Image)
         rospy.wait_for_message("zed2i/zed_node/depth/depth_registered", Image)
+
+        self.visual = rospy.get_param("~visual")
 
         self.image_shape = self.cv_image.shape
         self.rate = rospy.Rate(10)
@@ -81,10 +85,18 @@ class Camera:
             depth_mask = depth_filter(self.depth_image, mask)
 
             # keypoints calculation
-            points, visual = yolo_pose(pose_results)
+            points, _ = yolo_pose(pose_results)
 
             # match instance seg depth and keypoints
             depth = pose_seg_match(points, depth_mask)
+
+            pro_result, orientation = result_project(points, depth)
+
+            if self.visual:
+                k = drawing(self.cv_image, points, pro_result, orientation)
+                if k == ord('q'):
+                    rospy.loginfo("Complete!")
+                    break
 
             rospy.loginfo("This is a test")
             self.rate.sleep()
