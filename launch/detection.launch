@@ -1,0 +1,10 @@
+<launch>
+    <arg name="param_fp" default="$(find green_onion_perception)/params" />
+
+    <include file="$(find zed_wrapper)/launch/zed2i.launch"/>
+
+    <node name="camera" pkg="green_onion_perception" type="camera.py" output="screen">
+        <param name="~param_fp" value="$(arg param_fp)"/>
+    </node>
+
+</launch>
