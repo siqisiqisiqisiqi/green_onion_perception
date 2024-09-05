@@ -81,6 +81,7 @@ class Camera:
         while not rospy.is_shutdown():
             if self.cv_image is None:
                 continue
+            
             # visualize the image
             cv2.imshow("image", self.depth_image)
             cv2.waitKey(2)

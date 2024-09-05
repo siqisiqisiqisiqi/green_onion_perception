@@ -1,13 +1,19 @@
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.dirname(BASE_DIR)
+
 import numpy as np
 import cv2
 from numpy.linalg import inv
 
 
 chess_size = 1  # mm
+extrinsic_param = os.path.join(PARENT_DIR, 'params/E1.npz')
 
-with np.load('params/E1.npz') as X:
-    mtx, dist, Mat, tvecs, rvecs = [X[i]
-                                    for i in ('mtx', 'dist', 'Mat', 'tvecs', 'rvecs')]
+with np.load(extrinsic_param) as X:
+    mtx, dist, Mat, tvecs = [X[i] for i in ('mtx', 'dist', 'Mat', 'tvec')]
+
 tvec = tvecs * chess_size
 fx = mtx[0, 0]
 fy = mtx[1, 1]
