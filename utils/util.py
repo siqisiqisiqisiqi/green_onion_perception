@@ -9,10 +9,10 @@ from numpy.linalg import inv
 
 
 chess_size = 1  # mm
-extrinsic_param = os.path.join(PARENT_DIR, 'params/E1.npz')
+extrinsic_param = os.path.join(PARENT_DIR, 'params/E.npz')
 
 with np.load(extrinsic_param) as X:
-    mtx, dist, Mat, tvecs = [X[i] for i in ('mtx', 'dist', 'Mat', 'tvec')]
+    mtx, dist, Mat, tvecs = [X[i] for i in ('mtx', 'dist', 'Mat', 'tvecs')]
 
 tvec = tvecs * chess_size
 fx = mtx[0, 0]
@@ -36,8 +36,13 @@ def size_interpolation(img, image_shape):
         resized image
     """
     instack = img.transpose((1, 2, 0))
-    mask = cv2.resize(instack, (image_shape.shape[1], image_shape.shape[0]),
+
+    mask = cv2.resize(instack, (image_shape[1], image_shape[0]),
                       interpolation=cv2.INTER_NEAREST)
+
+    if instack.shape[-1] == 1:
+        mask = np.expand_dims(mask, axis=-1)
+
     mask = mask.transpose((2, 0, 1))
     return mask
 
@@ -80,13 +85,14 @@ def yolo_pose(yolo_pose_results):
     visual: ndarray
         the second and third keypoints visualbility
     """
-    confidence_thresdhold = 0.7
+    confidence_thresdhold = 0.8
     confidence = yolo_pose_results[0].keypoints.conf.detach().cpu().numpy()
-    indices = np.where(confidence > confidence_thresdhold)
+    conf_mean = np.mean(confidence[:, :3], axis=-1)
+    indices = np.where(conf_mean > confidence_thresdhold)
     keypoints = yolo_pose_results[0].keypoints.data.detach().cpu().numpy()
     num_object = len(indices[0])
-    points = keypoints[:, 1:3, :2]
-    visual = keypoints[:, 1:3, 2]
+    points = keypoints[indices[0], 1:3, :2]
+    visual = keypoints[indices[0], 1:3, 2]
 
     one_vector = np.ones(points.shape[:2])
     one_vector = np.expand_dims(one_vector, axis=2)
@@ -217,7 +223,8 @@ def result_project(point, depth):
     result = projection(point, mtx, Mat, tvec, depth)
     result = np.round(result, 2)
     result = result.reshape((-1, 2, 3))
-    grasp_point = np.mean(result, axis=1)
+    # grasp_point = np.mean(result, axis=1)
+    grasp_point = np.average(result, axis=1, weights=[0.05, 0.95])
     p1 = result[:, 0, :]
     p2 = result[:, 1, :]
     dy = p2[:, 1] - p1[:, 1]

@@ -7,6 +7,8 @@ PARENT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(PARENT_DIR)
 
 import rospy
+import ros_numpy
+import numpy as np
 import cv2
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge, CvBridgeError
@@ -34,8 +36,12 @@ class Camera:
         self.camera_info = rospy.wait_for_message(
             "zed2i/zed_node/rgb/camera_info", CameraInfo)
 
-        self.model_seg = YOLO("./weights/green_onion_instance_seg.pt")
-        self.model_pose = YOLO("./weights/green_onion_skeleton.pt")
+        weights_fp = rospy.get_param("~weights_fp")
+
+        self.model_seg = YOLO(f"{weights_fp}/green_onion_instance_seg.pt")
+        self.model_seg.conf = 0.7
+        self.model_pose = YOLO(f"{weights_fp}/green_onion_skeleton.pt")
+        self.model_pose.conf = 0.8
 
         self.cv_image = None
         self.depth_image = None
@@ -59,7 +65,7 @@ class Camera:
         try:
             self.depth_image = self.bridge.imgmsg_to_cv2(data, "32FC1")
             # TODO: Debug the inaccurate depth problem
-            self.depth_image = self.depth_image - 0.045
+            # self.depth_image = self.depth_image - 0.045
         except CvBridgeError as e:
             print(e)
 
@@ -73,17 +79,17 @@ class Camera:
             kpt_pose.x, kpt_pose.y, kpt_pose.z = pro_result[i]
             kpt_pose.yaw = orientation[i]
             kpts_data.grap_pose.append(kpt_pose)
-        self.kpts_pub.pub(kpts_data)
+        self.kpts_pub.publish(kpts_data)
 
     def run(self):
         rospy.sleep(2)
 
         while not rospy.is_shutdown():
-            if self.cv_image is None:
+            if self.cv_image is None or self.depth_image is None:
                 continue
-            
-            # visualize the image
-            cv2.imshow("image", self.depth_image)
+
+            # # visualize the image
+            cv2.imshow("image", self.cv_image)
             cv2.waitKey(2)
 
             # model inference
@@ -91,6 +97,19 @@ class Camera:
                 self.cv_image[:, :, :3], verbose=False)
             pose_results = self.model_pose(
                 self.cv_image[:, :, :3], verbose=False)
+
+            # YOLO result visualize
+            # r = pose_results[0]
+            # im_array = r.plot()
+            # cv2.imshow("image", im_array)
+            # k = cv2.waitKey(10)
+            # if k == ord('q'):
+            #     rospy.loginfo("complete")
+            #     break
+
+            if pose_results[0].keypoints.conf is None or seg_results[0].masks is None:
+                rospy.loginfo(f"Can't detect the object!")
+                continue
 
             # instance seg depth calculation
             mask_result = seg_results[0].masks.data.cpu().detach().numpy()
@@ -109,17 +128,13 @@ class Camera:
             # publish the message to the topic
             self.pub_kpts_pose(pro_result, orientation)
 
-            # publish the keypoint pose
-            self.pub_kpts_pose(pro_result, orientation)
-
             # visualization
-            if self.visual:
-                k = drawing(self.cv_image, points, pro_result, orientation)
-                if k == ord('q'):
-                    rospy.loginfo("Complete!")
-                    break
+            # if self.visual:
+            #     k = drawing(self.cv_image, points, pro_result, orientation)
+            #     if k == ord('q'):
+            #         rospy.loginfo("Complete!")
+            #         break
 
-            rospy.loginfo("This is a test")
             self.rate.sleep()
 
 
@@ -129,4 +144,5 @@ if __name__ == "__main__":
         node.run()
     except rospy.ROSInterruptException:
         pass
+    cv2.destroyAllWindows()
     rospy.loginfo("Finish the code!")

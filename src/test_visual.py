@@ -9,10 +9,10 @@ import cv2
 
 chess_size = 1  # mm
 
-extrinsic_param = os.path.join(PARENT_DIR, 'params/E1.npz')
+extrinsic_param = os.path.join(PARENT_DIR, 'params/E.npz')
 
 with np.load(extrinsic_param) as X:
-    mtx, dist, Mat, tvecs = [X[i] for i in ('mtx', 'dist', 'Mat', 'tvec')]
+    mtx, dist, Mat, tvecs = [X[i] for i in ('mtx', 'dist', 'Mat', 'tvecs')]
 
 tvec = tvecs * chess_size
 rvecs, _ = cv2.Rodrigues(Mat)

@@ -6,8 +6,8 @@
         "limitSymbolsToIncludedHeaders": false
       },
       "includePath": [
-        "/home/grail/catkin_ws_ur10/devel/include/**",
         "/home/grail/siqi/fruit_packaging_project/fruit_packaging_zed/catkin_ws/devel/include/**",
+        "/home/grail/catkin_ws_ur10/devel/include/**",
         "/opt/ros/noetic/include/**",
         "/home/grail/catkin_ws_ur10/src/MYROBOT_gazebo/include/**",
         "/home/grail/catkin_ws_ur10/src/aue8930_project/include/**",
